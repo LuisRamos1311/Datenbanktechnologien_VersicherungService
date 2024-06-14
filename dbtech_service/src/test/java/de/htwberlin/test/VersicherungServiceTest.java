@@ -185,9 +185,9 @@ public class VersicherungServiceTest {
    */
   @org.junit.Test
   public void createDeckung12() throws Exception {
-    Integer[] vertragsIds = new Integer[] { 5, 8, 9 };
-    Integer[] deckungsartIds = new Integer[] { 4, 3, 3 };
-    BigDecimal[] deckungsbetraege = new BigDecimal[] { BigDecimal.valueOf(50000), BigDecimal.valueOf(100000),
+    Integer[] vertragsIds = new Integer[] {5, 8, 9 };
+    Integer[] deckungsartIds = new Integer[] {4, 3, 3 };
+    BigDecimal[] deckungsbetraege = new BigDecimal[] {BigDecimal.valueOf(50000), BigDecimal.valueOf(100000),
         BigDecimal.valueOf(200000) };
     for (int i = 0; i < 3; i++) {
       vService.createDeckung(vertragsIds[i], deckungsartIds[i], deckungsbetraege[i]);
