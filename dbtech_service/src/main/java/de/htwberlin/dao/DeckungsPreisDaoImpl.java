@@ -11,6 +11,8 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.ArrayList;
+import java.util.List;
 
 public class DeckungsPreisDaoImpl implements DeckungsPreisDao {
 
@@ -42,6 +44,37 @@ public class DeckungsPreisDaoImpl implements DeckungsPreisDao {
 
             }
             return deckungsPreis;
+        } catch (SQLException sqlException) {
+            L.error(sqlException.getMessage());
+            throw new DataException(sqlException);
+        }
+
+    }
+
+    @Override
+    public List<DeckungsPreis> getDeckungsPreisListByDeckungsbetrag_FK(int deckungsBetragId) {
+
+        PreparedStatement preparedStatement = null;
+        ResultSet resultSet = null;
+
+        List<DeckungsPreis> deckungsPreisList = new ArrayList<>();
+
+        try {
+            preparedStatement = this.connection.prepareStatement("select * from Deckungspreis where Deckungsbetrag_FK=?");
+            preparedStatement.setInt(1, deckungsBetragId);
+            resultSet = preparedStatement.executeQuery();
+            while (resultSet.next()) {
+                DeckungsPreis deckungsPreis = new DeckungsPreis();
+
+                deckungsPreis.setID(resultSet.getInt("ID"));
+                deckungsPreis.setDeckungsbetrag_FK(resultSet.getInt("Deckungsbetrag_FK"));
+                deckungsPreis.setGueltig_Von(resultSet.getDate("Gueltig_Von").toLocalDate());
+                deckungsPreis.setGueltig_Bis(resultSet.getDate("Gueltig_Bis").toLocalDate());
+                deckungsPreis.setPreis(resultSet.getInt("Preis"));
+
+                deckungsPreisList.add(deckungsPreis);
+            }
+            return deckungsPreisList;
         } catch (SQLException sqlException) {
             L.error(sqlException.getMessage());
             throw new DataException(sqlException);

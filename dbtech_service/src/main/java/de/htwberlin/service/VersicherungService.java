@@ -16,10 +16,7 @@ import java.util.Comparator;
 import java.util.List;
 
 import de.htwberlin.dao.*;
-import de.htwberlin.domain.DeckungsBetrag;
-import de.htwberlin.domain.DeckungsPreis;
-import de.htwberlin.domain.Deckungsart;
-import de.htwberlin.domain.Vertrag;
+import de.htwberlin.domain.*;
 import de.htwberlin.exceptions.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -206,16 +203,29 @@ public class VersicherungService implements IVersicherungService {
 
     //DeckungspreisNichtVorhandenException
     DeckungsPreisDao deckungsPreisDao = new DeckungsPreisDaoImpl(this.connection);
+
+    List<DeckungsPreis> deckungsPreisList = deckungsPreisDao.getDeckungsPreisListByDeckungsbetrag_FK(deckungsBetragObject.getID());
+
+
+    deckungsPreisList = deckungsPreisList.stream()
+            .filter(deckungsPreisObj -> vertrag.getVERSICHERUNGSBEGINN().isBefore(deckungsPreisObj.getGueltig_Bis()) || vertrag.getVERSICHERUNGSBEGINN().isEqual(deckungsPreisObj.getGueltig_Bis()))
+            .toList();
+
+    if(deckungsPreisList.isEmpty()) {
+      throw new DeckungspreisNichtVorhandenException(deckungsbetrag);
+    }
+
+    /**
     DeckungsPreis deckungsPreis = deckungsPreisDao.getDeckungsPreisByDeckungsbetrag_FK(deckungsBetragObject.getID());
     if (deckungsPreis.getID() == 0 ) {
       throw new DeckungspreisNichtVorhandenException(deckungsbetrag);
     }
 
 
-    if (vertrag.getVERSICHERUNGSBEGINN().isBefore(deckungsPreis.getGueltig_Bis())) {
+    if (vertrag.getVERSICHERUNGSBEGINN().isAfter(deckungsPreis.getGueltig_Bis()) || vertrag.getVERSICHERUNGSBEGINN().isEqual(deckungsPreis.getGueltig_Bis())) {
       L.error(deckungsPreis.getGueltig_Bis().toString() + vertrag.getVERSICHERUNGSBEGINN().toString());
-      throw new DeckungsartNichtRegelkonformException(deckungsartId);
-    }
+      throw new DeckungspreisNichtVorhandenException(deckungsbetrag);
+    }*/
 
     /**
     if (vertrag.getVERSICHERUNGSBEGINN().getYear() >= deckungsPreis.getGueltig_Bis().getYear()) {
@@ -274,6 +284,33 @@ public class VersicherungService implements IVersicherungService {
     }*/
 
 
+    /**
+    AblehnungsRegelDao ablehnungsRegelDao = new AblehnungsRegelDaoImpl(this.connection);
+    Ablehnungsregel ablehnungsregel = ablehnungsRegelDao.getAblehnungsRegelByDeckungsArtId(deckungsartId);
+    if (deckungsPreis.getID() == 0 ) {
+      throw new DeckungsartNichtRegelkonformException(deckungsartId);
+    }*/
+
+
+    AblehnungsRegelDao ablehnungsRegelDao = new AblehnungsRegelDaoImpl(this.connection);
+    List<Ablehnungsregel> ablehnungsRegelList = ablehnungsRegelDao.getAblehnungsRegelListByDeckungsArtId(deckungsartId);
+
+    KundeDao kundeDao = new KundeDaoImpl(this.connection);
+    Kunde kunde = kundeDao.getKundeById(vertrag.getKUNDE_FK());
+
+    if(!ablehnungsRegelList.isEmpty()) {
+      ablehnungsRegelList.stream()
+              .filter(ablehnungsdaten -> this.doesAgeMatch(kunde.getGeburtsdatum(), ablehnungsdaten.getR_Alter()))
+              .max(Comparator.comparing(ablehnungsdaten -> ablehnungsdaten.getR_Alter().substring(2)))
+              .filter(ablehnungsdaten -> this.doesDeckungsBetragMatch(deckungsbetrag.intValue(),ablehnungsdaten.getR_Betrag()))
+              .orElseThrow(() -> new DeckungsartNichtRegelkonformException(deckungsartId));
+    }
+
+    DeckungDaoImpl deckungDao = new DeckungDaoImpl(this.connection);
+    deckungDao.createDeckung(vertragsId,deckungsartId,deckungsbetrag);
+
+
+/**
     try{
       PreparedStatement statement = null;
       ResultSet resultSet = null;
@@ -294,6 +331,7 @@ public class VersicherungService implements IVersicherungService {
       statement.setInt(2,deckungsartId);
       statement.setBigDecimal(3,deckungsbetrag);
       resultSet = statement.executeQuery();
+
 
       List<Ablehnungsdaten> ablehnungsdatenList = new ArrayList<>();
       List<Ablehnungsdaten> OGablehnungsdatenList = new ArrayList<>();
@@ -372,9 +410,21 @@ public class VersicherungService implements IVersicherungService {
     catch (SQLException sqlException) {
       L.error(sqlException.getMessage());
     }
-
+ */
 
     L.info("ende");
+  }
+
+  private boolean doesAgeMatch(LocalDate birthDate, String ageCondition){
+    if(ageCondition.charAt(0) == '>' && Period.between(birthDate, LocalDate.now()).getYears() > Integer.parseInt(ageCondition.substring(2))){
+      return true;    }
+      return ageCondition.charAt(0) == '<' && Period.between(birthDate, LocalDate.now()).getYears() < Integer.parseInt(ageCondition.substring(2));
+  };
+
+  private boolean doesDeckungsBetragMatch(Integer deckungsbetrag, String deckungsBetragCondition){
+    if(deckungsBetragCondition.startsWith(">=") && deckungsbetrag < Integer.parseInt(deckungsBetragCondition.substring(3))){
+      return true;     }
+    return deckungsBetragCondition.startsWith("<=") && deckungsbetrag > Integer.parseInt(deckungsBetragCondition.substring(3));
   }
 
   
